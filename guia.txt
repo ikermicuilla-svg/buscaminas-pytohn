@@ -1,0 +1,558 @@
+"""
+=============================================================================
+ARCHIVO 1: __init__.py
+(Guardar en: Proyecto_Final_FP/biblioteca/__init__.py)
+=============================================================================
+Este archivo hace que Python reconozca la carpeta "biblioteca" como un paquete.
+Permite importar módulos desde esta carpeta usando: from biblioteca import module
+"""
+
+# Importar las clases principales del módulo para facilitar su uso
+from .module import Buscaminas
+
+# Definir qué se exporta cuando alguien hace: from biblioteca import *
+__all__ = ['Buscaminas']
+
+# Información del paquete
+__version__ = '1.0.0'
+__author__ = 'Tu Nombre'
+
+
+"""
+=============================================================================
+ARCHIVO 2: module.py
+(Guardar en: Proyecto_Final_FP/biblioteca/module.py)
+=============================================================================
+Este módulo contiene toda la lógica del juego Buscaminas.
+Aquí se define la clase principal con todos sus métodos.
+"""
+
+import tkinter as tk
+from tkinter import messagebox
+import random
+
+# IMPORTACIONES:
+# tkinter: biblioteca para crear interfaces gráficas con ventanas, botones, etc.
+# messagebox: submódulo de tkinter para mostrar ventanas emergentes
+# random: para generar posiciones aleatorias donde colocar las minas
+
+
+class Buscaminas:
+    """
+    Clase principal del juego Buscaminas.
+    
+    Gestiona toda la lógica del juego y la interfaz gráfica:
+    - Creación del tablero
+    - Colocación de minas
+    - Interacción con el usuario
+    - Verificación de victoria/derrota
+    """
+    
+    def __init__(self, filas=10, columnas=10, minas=15):
+        """
+        Constructor que inicializa el juego.
+        
+        Parámetros:
+            filas (int): Número de filas del tablero (por defecto 10)
+            columnas (int): Número de columnas del tablero (por defecto 10)
+            minas (int): Cantidad de minas a distribuir (por defecto 15)
+        
+        Atributos creados:
+            - ventana: La ventana principal de tkinter
+            - tablero: Matriz con -1 para minas y números para casillas seguras
+            - revelado: Matriz booleana que indica qué casillas están descubiertas
+            - banderas: Matriz booleana que indica dónde hay banderas
+            - botones: Matriz con los botones de la interfaz gráfica
+            - juego_terminado: Bandera que indica si el juego finalizó
+        """
+        self.filas = filas
+        self.columnas = columnas
+        self.num_minas = minas
+        self.juego_terminado = False
+        
+        # Crear la ventana principal usando tkinter
+        self.ventana = tk.Tk()
+        self.ventana.title("Buscaminas - Proyecto Final")
+        self.ventana.resizable(False, False)
+        
+        # Inicializar matrices del juego
+        # tablero: guarda -1 para minas, o el número de minas adyacentes (0-8)
+        self.tablero = [[0 for _ in range(columnas)] for _ in range(filas)]
+        
+        # revelado: True si la casilla fue descubierta, False si no
+        self.revelado = [[False for _ in range(columnas)] for _ in range(filas)]
+        
+        # banderas: True si el jugador marcó esa casilla con bandera
+        self.banderas = [[False for _ in range(columnas)] for _ in range(filas)]
+        
+        # botones: matriz de botones de tkinter para la interfaz
+        self.botones = [[None for _ in range(columnas)] for _ in range(filas)]
+        
+        # Configurar el juego
+        self.colocar_minas()
+        self.calcular_numeros()
+        self.crear_interfaz()
+    
+    def colocar_minas(self):
+        """
+        Distribuye aleatoriamente las minas en el tablero.
+        
+        Las minas se representan con el valor -1 en la matriz del tablero.
+        Este método asegura que no se coloquen dos minas en la misma posición.
+        
+        Proceso:
+        1. Genera coordenadas aleatorias
+        2. Verifica que esa posición no tenga mina
+        3. Si está libre, coloca la mina (-1)
+        4. Repite hasta colocar todas las minas
+        """
+        minas_colocadas = 0
+        
+        while minas_colocadas < self.num_minas:
+            # Generar posición aleatoria
+            fila = random.randint(0, self.filas - 1)
+            col = random.randint(0, self.columnas - 1)
+            
+            # Si esa casilla no tiene mina, colocarla
+            if self.tablero[fila][col] != -1:
+                self.tablero[fila][col] = -1
+                minas_colocadas += 1
+    
+    def calcular_numeros(self):
+        """
+        Calcula cuántas minas hay alrededor de cada casilla.
+        
+        Para cada casilla que NO es mina, cuenta las minas en las 8
+        posiciones adyacentes (arriba, abajo, izquierda, derecha y diagonales).
+        
+        El número resultante (0-8) se almacena en el tablero y será
+        mostrado al jugador cuando descubra esa casilla.
+        
+        Direcciones verificadas:
+        [-1,-1] [-1,0] [-1,1]
+        [ 0,-1] [X,X ] [ 0,1]
+        [ 1,-1] [ 1,0] [ 1,1]
+        """
+        for fila in range(self.filas):
+            for col in range(self.columnas):
+                # Si es mina, no calcular (ya tiene -1)
+                if self.tablero[fila][col] == -1:
+                    continue
+                
+                # Contador de minas adyacentes
+                minas_adyacentes = 0
+                
+                # Revisar las 8 direcciones posibles
+                for desplazamiento_fila in [-1, 0, 1]:
+                    for desplazamiento_col in [-1, 0, 1]:
+                        # Saltar la casilla actual (0,0)
+                        if desplazamiento_fila == 0 and desplazamiento_col == 0:
+                            continue
+                        
+                        # Calcular nueva posición
+                        nueva_fila = fila + desplazamiento_fila
+                        nueva_col = col + desplazamiento_col
+                        
+                        # Verificar que esté dentro de los límites del tablero
+                        if (0 <= nueva_fila < self.filas and 
+                            0 <= nueva_col < self.columnas):
+                            # Si hay mina en esa posición, incrementar contador
+                            if self.tablero[nueva_fila][nueva_col] == -1:
+                                minas_adyacentes += 1
+                
+                # Guardar el número calculado en el tablero
+                self.tablero[fila][col] = minas_adyacentes
+    
+    def crear_interfaz(self):
+        """
+        Crea la interfaz gráfica del juego con todos sus elementos.
+        
+        Elementos creados:
+        1. Frame principal: contenedor de todos los botones
+        2. Matriz de botones: un botón por cada casilla del tablero
+        3. Eventos de mouse: click izquierdo y derecho en cada botón
+        4. Botón de reinicio: para empezar una nueva partida
+        
+        Configuración de botones:
+        - width y height: tamaño del botón
+        - font: tipo y tamaño de letra
+        - bg: color de fondo inicial (gris claro)
+        """
+        # Frame: contenedor principal para organizar los botones en cuadrícula
+        frame = tk.Frame(self.ventana)
+        frame.pack(padx=10, pady=10)
+        
+        # Crear matriz de botones
+        for fila in range(self.filas):
+            for col in range(self.columnas):
+                # Crear botón individual
+                boton = tk.Button(
+                    frame,
+                    width=3,
+                    height=1,
+                    font=('Arial', 12, 'bold'),
+                    bg='lightgray'
+                )
+                
+                # Colocar botón en la cuadrícula usando grid
+                boton.grid(row=fila, column=col, padx=1, pady=1)
+                
+                # Asociar eventos de mouse
+                # Button-1: click izquierdo (revelar casilla)
+                # Button-3: click derecho (colocar/quitar bandera)
+                # Lambda captura fila y col específicos para cada botón
+                boton.bind('<Button-1>', 
+                          lambda evento, f=fila, c=col: self.revelar_casilla(f, c))
+                boton.bind('<Button-3>', 
+                          lambda evento, f=fila, c=col: self.alternar_bandera(f, c))
+                
+                # Guardar referencia al botón en la matriz
+                self.botones[fila][col] = boton
+        
+        # Botón para reiniciar el juego
+        boton_reiniciar = tk.Button(
+            self.ventana,
+            text="🔄 Reiniciar Juego",
+            command=self.reiniciar_juego,
+            font=('Arial', 11, 'bold'),
+            bg='lightblue',
+            padx=20,
+            pady=5
+        )
+        boton_reiniciar.pack(pady=10)
+    
+    def revelar_casilla(self, fila, col):
+        """
+        Revela el contenido de una casilla cuando el usuario hace click izquierdo.
+        
+        Parámetros:
+            fila (int): Fila de la casilla
+            col (int): Columna de la casilla
+        
+        Comportamiento según el contenido:
+        - Si es mina (-1): Termina el juego con derrota
+        - Si es número (1-8): Muestra el número con color
+        - Si es vacío (0): Revela automáticamente casillas adyacentes
+        
+        Verificaciones previas:
+        - No hace nada si el juego ya terminó
+        - No hace nada si la casilla tiene bandera
+        - No hace nada si ya está revelada
+        """
+        # Verificar condiciones que impiden revelar
+        if (self.juego_terminado or 
+            self.banderas[fila][col] or 
+            self.revelado[fila][col]):
+            return
+        
+        # Marcar casilla como revelada
+        self.revelado[fila][col] = True
+        
+        # Caso 1: Es una mina - GAME OVER
+        if self.tablero[fila][col] == -1:
+            self.botones[fila][col].config(
+                text='💣', 
+                bg='red',
+                fg='white'
+            )
+            self.terminar_juego(victoria=False)
+            return
+        
+        # Caso 2 y 3: Es número o vacío
+        numero = self.tablero[fila][col]
+        
+        # Diccionario de colores para cada número (1-8)
+        colores_numeros = {
+            0: 'white',
+            1: 'blue',
+            2: 'green',
+            3: 'red',
+            4: 'darkblue',
+            5: 'darkred',
+            6: 'cyan',
+            7: 'black',
+            8: 'gray'
+        }
+        
+        # Actualizar apariencia del botón
+        if numero == 0:
+            # Casilla vacía: no muestra texto
+            self.botones[fila][col].config(
+                text='',
+                bg='white',
+                relief=tk.SUNKEN
+            )
+            # Revelar automáticamente las casillas adyacentes (efecto cascada)
+            self.revelar_adyacentes(fila, col)
+        else:
+            # Casilla con número: mostrar el número con color
+            self.botones[fila][col].config(
+                text=str(numero),
+                fg=colores_numeros.get(numero, 'black'),
+                bg='white',
+                relief=tk.SUNKEN
+            )
+        
+        # Verificar si el jugador ganó después de esta jugada
+        self.verificar_victoria()
+    
+    def revelar_adyacentes(self, fila, col):
+        """
+        Revela recursivamente todas las casillas adyacentes a una casilla vacía.
+        
+        Parámetros:
+            fila (int): Fila de la casilla vacía origen
+            col (int): Columna de la casilla vacía origen
+        
+        Este método implementa el comportamiento clásico del Buscaminas:
+        cuando se descubre una casilla vacía (0), automáticamente se
+        revelan todas las casillas conectadas que también estén vacías,
+        hasta encontrar números o bordes del tablero.
+        
+        Es una función recursiva que se llama a sí misma para cada
+        casilla adyacente que descubre.
+        """
+        # Revisar las 8 direcciones alrededor de la casilla
+        for df in [-1, 0, 1]:
+            for dc in [-1, 0, 1]:
+                # Saltar la casilla actual
+                if df == 0 and dc == 0:
+                    continue
+                
+                # Calcular posición adyacente
+                nueva_fila = fila + df
+                nueva_col = col + dc
+                
+                # Verificar que la posición sea válida y no esté revelada
+                if (0 <= nueva_fila < self.filas and 
+                    0 <= nueva_col < self.columnas and 
+                    not self.revelado[nueva_fila][nueva_col] and
+                    not self.banderas[nueva_fila][nueva_col]):
+                    
+                    # Revelar la casilla adyacente (recursión)
+                    self.revelar_casilla(nueva_fila, nueva_col)
+    
+    def alternar_bandera(self, fila, col):
+        """
+        Coloca o quita una bandera en una casilla con click derecho.
+        
+        Parámetros:
+            fila (int): Fila de la casilla
+            col (int): Columna de la casilla
+        
+        Las banderas permiten al jugador marcar casillas donde
+        cree que hay minas, evitando revelarlas accidentalmente.
+        
+        Estado de banderas:
+        - True: Casilla marcada con 🚩
+        - False: Casilla sin marcar
+        """
+        # No hacer nada si la casilla ya está revelada o el juego terminó
+        if self.revelado[fila][col] or self.juego_terminado:
+            return
+        
+        # Cambiar estado de la bandera (True ↔ False)
+        self.banderas[fila][col] = not self.banderas[fila][col]
+        
+        # Actualizar apariencia del botón
+        if self.banderas[fila][col]:
+            # Colocar bandera
+            self.botones[fila][col].config(text='🚩', fg='red')
+        else:
+            # Quitar bandera
+            self.botones[fila][col].config(text='', fg='black')
+    
+    def verificar_victoria(self):
+        """
+        Verifica si el jugador ha ganado el juego.
+        
+        Condición de victoria:
+        El jugador gana cuando todas las casillas que NO son minas
+        han sido reveladas. Es decir, solo quedan por descubrir
+        las casillas con minas.
+        
+        Proceso:
+        1. Cuenta cuántas casillas sin mina faltan por revelar
+        2. Si el contador es 0, el jugador ganó
+        3. Llama a terminar_juego(True) para mostrar victoria
+        """
+        casillas_sin_revelar = 0
+        
+        # Contar casillas no reveladas que no son minas
+        for fila in range(self.filas):
+            for col in range(self.columnas):
+                # Si no está revelada Y no es mina, contar
+                if (not self.revelado[fila][col] and 
+                    self.tablero[fila][col] != -1):
+                    casillas_sin_revelar += 1
+        
+        # Si no quedan casillas por revelar, el jugador ganó
+        if casillas_sin_revelar == 0:
+            self.terminar_juego(victoria=True)
+    
+    def terminar_juego(self, victoria):
+        """
+        Finaliza el juego y muestra el resultado.
+        
+        Parámetros:
+            victoria (bool): True si ganó, False si perdió
+        
+        Acciones realizadas:
+        1. Marca el juego como terminado
+        2. Revela todas las minas del tablero
+        3. Cambia el color según victoria/derrota
+        4. Muestra mensaje emergente con el resultado
+        """
+        self.juego_terminado = True
+        
+        # Revelar todas las minas en el tablero
+        for fila in range(self.filas):
+            for col in range(self.columnas):
+                if self.tablero[fila][col] == -1:
+                    if victoria:
+                        # Victoria: minas en verde
+                        self.botones[fila][col].config(
+                            text='💣',
+                            bg='lightgreen',
+                            fg='darkgreen'
+                        )
+                    else:
+                        # Derrota: minas en rojo
+                        if not self.revelado[fila][col]:
+                            self.botones[fila][col].config(
+                                text='💣',
+                                bg='orange',
+                                fg='black'
+                            )
+        
+        # Mostrar mensaje emergente con el resultado
+        if victoria:
+            messagebox.showinfo(
+                "🎉 ¡VICTORIA!",
+                "¡Felicidades! Has ganado el juego.\n"
+                "Encontraste todas las minas."
+            )
+        else:
+            messagebox.showinfo(
+                "💥 DERROTA",
+                "¡Boom! Pisaste una mina.\n"
+                "Inténtalo de nuevo."
+            )
+    
+    def reiniciar_juego(self):
+        """
+        Reinicia el juego desde cero.
+        
+        Proceso:
+        1. Destruye la ventana actual con todos sus componentes
+        2. Crea una nueva instancia del juego con los mismos parámetros
+        3. Inicia el nuevo juego
+        
+        Esto permite al jugador jugar múltiples partidas sin
+        cerrar y volver a abrir el programa.
+        """
+        self.ventana.destroy()
+        nuevo_juego = Buscaminas(self.filas, self.columnas, self.num_minas)
+        nuevo_juego.iniciar()
+    
+    def iniciar(self):
+        """
+        Inicia el bucle principal de eventos de tkinter.
+        
+        mainloop() es una función de tkinter que:
+        - Mantiene la ventana abierta
+        - Espera y procesa eventos del usuario (clicks, teclado, etc.)
+        - Solo termina cuando se cierra la ventana
+        
+        Sin llamar a mainloop(), la ventana se abriría y cerraría
+        inmediatamente.
+        """
+        self.ventana.mainloop()
+
+
+"""
+=============================================================================
+ARCHIVO 3: main.py
+(Guardar en: Proyecto_Final_FP/biblioteca/main.py)
+=============================================================================
+Este es el archivo principal que ejecutas para iniciar el juego.
+Importa la clase Buscaminas del módulo y crea una instancia del juego.
+"""
+
+# Importar la clase Buscaminas desde el módulo
+# El punto (.) indica que module.py está en la misma carpeta
+from .module import Buscaminas
+
+
+def main():
+    """
+    Función principal que inicia el programa.
+    
+    Crea una instancia del juego Buscaminas con parámetros configurables
+    y lo ejecuta.
+    
+    Parámetros del juego:
+    - filas: Número de filas del tablero (recomendado: 8-15)
+    - columnas: Número de columnas del tablero (recomendado: 8-15)
+    - minas: Cantidad de minas (recomendado: 10-20% del total de casillas)
+    """
+    print("=" * 50)
+    print("🎮 BUSCAMINAS - Proyecto Final")
+    print("=" * 50)
+    print("Instrucciones:")
+    print("- Click Izquierdo: Revelar casilla")
+    print("- Click Derecho: Colocar/quitar bandera 🚩")
+    print("=" * 50)
+    
+    # Crear instancia del juego con configuración
+    # Puedes cambiar estos valores para ajustar la dificultad:
+    # Fácil: 8x8 con 10 minas
+    # Medio: 10x10 con 15 minas
+    # Difícil: 15x15 con 35 minas
+    juego = Buscaminas(filas=10, columnas=10, minas=15)
+    
+    # Iniciar el juego
+    juego.iniciar()
+    
+    print("\n¡Gracias por jugar!")
+
+
+# Punto de entrada del programa
+# Esto asegura que main() solo se ejecute si este archivo
+# se ejecuta directamente (no si se importa)
+if __name__ == "__main__":
+    main()
+
+
+"""
+=============================================================================
+INSTRUCCIONES PARA EJECUTAR EL JUEGO:
+=============================================================================
+
+1. Crear la estructura de carpetas:
+   Proyecto_Final_FP/
+   └── biblioteca/
+       ├── __init__.py      (copiar el ARCHIVO 1)
+       ├── module.py        (copiar el ARCHIVO 2)
+       └── main.py          (copiar el ARCHIVO 3)
+
+2. Para ejecutar el juego, DESDE la carpeta Proyecto_Final_FP ejecutar:
+   
+   python -m biblioteca.main
+
+   O crear un archivo ejecutor en Proyecto_Final_FP/:
+   
+   # ejecutar.py
+   from biblioteca.main import main
+   main()
+
+3. Requisitos:
+   - Python 3.6 o superior
+   - tkinter (viene incluido con Python)
+
+4. Para cambiar la dificultad:
+   Edita los valores en main.py:
+   - Fácil: Buscaminas(filas=8, columnas=8, minas=10)
+   - Medio: Buscaminas(filas=10, columnas=10, minas=15)
+   - Difícil: Buscaminas(filas=15, columnas=15, minas=35)
+"""
